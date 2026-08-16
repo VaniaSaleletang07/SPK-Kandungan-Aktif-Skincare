@@ -1,6 +1,6 @@
 {
   "terminal.integrated.cwd": "${workspaceFolder}",
   "terminal.integrated.env.windows": {
-    "PATH": "C:\\laragon\\bin\\nodejs\\node-v22;${env:PATH}"
+    "PATH": "C:\\laragon\\bin\\nodejs\\node-v22;C:\\Program Files\\Git\\cmd;${env:PATH}"
   }
 }
