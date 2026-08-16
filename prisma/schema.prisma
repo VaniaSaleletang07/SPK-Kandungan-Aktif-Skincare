@@ -1,0 +1,110 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum CriteriaType {
+  BENEFIT
+  COST
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  name          String?
+  password      String         // Hashed password
+  role          Role           @default(USER)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  consultations Consultation[]
+}
+
+model Criteria {
+  id                String             @id @default(uuid())
+  name              String             // e.g., Jenis Kulit, Sensitivitas, Keparahan Jerawat, Skin Barrier
+  weight            Float              // Bobot awal
+  type              CriteriaType       // BENEFIT / COST
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  suitabilityValues SuitabilityValue[]
+}
+
+model Alternative {
+  id                String                    @id @default(uuid())
+  name              String                    // e.g., Salicylic Acid, Niacinamide
+  description       String?                   @db.Text
+  reference         String?                   @db.Text // Referensi ilmiah
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  suitabilityValues SuitabilityValue[]
+  products          ProductActiveIngredient[]
+}
+
+// Tabel Nilai Kecocokan antara Kriteria dan Alternatif (Tabel Relasi)
+model SuitabilityValue {
+  id            String      @id @default(uuid())
+  criteriaId    String
+  alternativeId String
+  value         Float       // Nilai kecocokan
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  criteria      Criteria    @relation(fields: [criteriaId], references: [id], onDelete: Cascade)
+  alternative   Alternative @relation(fields: [alternativeId], references: [id], onDelete: Cascade)
+
+  @@unique([criteriaId, alternativeId])
+}
+
+model Product {
+  id                String                    @id @default(uuid())
+  name              String
+  price             Int
+  url               String?                   // Link ke e-commerce/toko
+  imageUrl          String?                   // Link gambar produk
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  activeIngredients ProductActiveIngredient[]
+}
+
+// Tabel pivot Many-to-Many untuk Product dan Alternative
+model ProductActiveIngredient {
+  productId     String
+  alternativeId String
+  createdAt     DateTime    @default(now())
+
+  product       Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  alternative   Alternative @relation(fields: [alternativeId], references: [id], onDelete: Cascade)
+
+  @@id([productId, alternativeId])
+}
+
+model Consultation {
+  id        String                 @id @default(uuid())
+  userId    String?                // Opsional jika guest bisa konsultasi, tapi baiknya wajib login sesuai rancangan
+  createdAt DateTime               @default(now())
+  updatedAt DateTime               @updatedAt
+
+  user      User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  snapshot  ConsultationSnapshot?
+}
+
+// Snapshot hasil konsultasi untuk riwayat (immutable terhadap perubahan master data)
+model ConsultationSnapshot {
+  id              String       @id @default(uuid())
+  consultationId  String       @unique
+  criteriaData    Json         // Menyimpan snapshot kriteria (bobot dll) saat konsultasi dilakukan
+  alternativeData Json         // Menyimpan snapshot nilai kecocokan saat konsultasi dilakukan
+  score           Json         // Menyimpan skor SMART tiap alternatif
+  rank            Json         // Menyimpan urutan hasil rekomendasi
+  snapshotDate    DateTime     @default(now())
+
+  consultation    Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+}
